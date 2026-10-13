@@ -118,8 +118,11 @@ log "Preparando la versión de la aplicación..."
 install -d -m 0755 "$STAGE/app"
 rsync -a --exclude='.git/' --exclude='runtime/data/' --exclude='*.sqlite' --exclude='*.sqlite-wal' --exclude='*.sqlite-shm' --exclude='*.env' --exclude='*credenciales*.csv' "$APPROOT/" "$STAGE/app/"
 
+if ! getent group epe >/dev/null 2>&1; then
+  groupadd --system epe
+fi
 if ! id epe >/dev/null 2>&1; then
-  useradd --system --home-dir /var/lib/epe --create-home --shell /usr/sbin/nologin epe
+  useradd --system --gid epe --home-dir /var/lib/epe --create-home --shell /usr/sbin/nologin epe
 fi
 install -d -m 0750 -o epe -g epe /var/lib/epe /var/lib/epe/data /var/lib/epe/private /var/lib/epe/paquetes-campus
 install -d -m 0750 /etc/epe /var/backups/epe /opt/epe/releases
