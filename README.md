@@ -2,7 +2,7 @@
 
 **ERP didáctico cooperativo para 2.º de CFGM de Gestión Administrativa (Canarias, 2026–2027).** Siete unidades, 21 paquetes SCORM 1.2 (portafolio, examen y recuperación), empresas simuladas de 4–5 alumnos y backend FastAPI/SQLite.
 
-> **Estado real (13/10/2026):** ZIP original recibido y verificado localmente: **21/21 SCORM íntegros y cuatro pruebas de integración superadas**. El código completo **no está publicado aún en este repositorio público**: el ZIP contiene `unidades/U1…U7/servidor/answer_key.json` y el solucionario docente. No sería prudente exponer las respuestas a los estudiantes. El instalador está publicado, pero **no es todavía autónomo únicamente desde GitHub**. Se necesita el ZIP original transferido por vía privada al LXC. La integración en el Campus real sigue pendiente de prueba.
+> **Estado real (13/10/2026):** ZIP original recibido y verificado localmente: **21/21 SCORM íntegros y cuatro pruebas de integración superadas**. El paquete completo **ya se encuentra publicado CIFRADO** en [releases/EPE_0446_CURSO_INTEGRADO_U1_A_U7_2026_2027.zip.enc](releases/EPE_0446_CURSO_INTEGRADO_U1_A_U7_2026_2027.zip.enc), sin exponer en abierto las claves de corrección ni el solucionario docente. Para instalarlo desde GitHub hace falta la clave privada `EPE_BUNDLE_PASSWORD`, entregada por separado. La instalación en Ubuntu y la integración en Campus real todavía requieren una prueba con el servidor definitivo.
 
 ## Arquitectura de despliegue prevista
 
@@ -37,23 +37,36 @@ curl -fsSL https://raw.githubusercontent.com/atreyu1968/epe/main/install.sh -o /
 cat /root/install-epe.sh
 ```
 
-**3. Copiar previamente el ZIP original del ERP al LXC**, por ejemplo a:
+**3. Instalar automáticamente desde GitHub con la clave privada del paquete cifrado.**
 
-`/root/EPE_0446_CURSO_INTEGRADO_U1_A_U7_2026_2027.zip`
+La clave privada de despliegue se entrega al profesor por un canal distinto a GitHub. **Nunca la publiques en el repositorio.** El siguiente comando la solicita sin mostrarla en pantalla y la utiliza durante la instalación:
 
-El ZIP se entrega en esta conversación, pero **no está en GitHub**. Para transferirlo desde el host Proxmox al contenedor puede usarse `pct push ID_CT /ruta/ZIP /root/ZIP` (este comando, y solo este, se ejecuta en el host Proxmox). Más alternativas en [la guía de Proxmox](docs/PROXMOX_LXC.md).
+```bash
+read -rsp 'Clave privada del ZIP EPE: ' EPE_BUNDLE_PASSWORD; echo
+export EPE_BUNDLE_PASSWORD
 
-**4. Ejecutar la instalación desatendida** (reemplaza `192.168.1.60` por la IP privada real del LXC EPE):
+EPE_BIND_HOST=192.168.1.60 \
+EPE_MOODLE_ORIGIN=https://moodle.atreyuediciones.net \
+EPE_INIT_DEMO=1 \
+bash /root/install-epe.sh
+
+unset EPE_BUNDLE_PASSWORD
+```
+
+Reemplaza `192.168.1.60` por la **IP privada REAL del LXC EPE**. `EPE_INIT_DEMO=1` crea únicamente si la base está vacía dos empresas de prueba de 4 y 5 integrantes; omite esa variable si no deseas datos demostrativos.
+
+**Alternativa:** si prefieres trasladar personalmente el ZIP original al LXC, usa:
 
 ```bash
 EPE_BIND_HOST=192.168.1.60 \
 EPE_MOODLE_ORIGIN=https://moodle.atreyuediciones.net \
 EPE_BUNDLE_FILE=/root/EPE_0446_CURSO_INTEGRADO_U1_A_U7_2026_2027.zip \
-EPE_INIT_DEMO=1 \
-bash /root/install-epe.sh
+EPE_INIT_DEMO=1 bash /root/install-epe.sh
 ```
 
-`EPE_INIT_DEMO=1` crea **solo en la base vacía** dos empresas ficticias de 4 y 5 alumnos para pruebas. Omítelo en la provisión final. Las credenciales se guardan en `/var/lib/epe/private/credenciales_epe.csv` y nunca deben publicarse.
+En esta vía manual puedes trasladarlo desde el host Proxmox con `pct push ID_CT /ruta/ZIP /root/ZIP` (solo en el host, no dentro del LXC).
+
+El instalador automatizado verifica el SHA-256 del cifrado (`123a2db15706bac900e3ffc00a33d73f98e5aeb0832cfc3ed3360ee64d10d84e`) y el del ZIP descifrado (`a1cec0729106dc6ee62f7eca3d9108efc276e1b28222b87929ff076437eebd1d`). Ante cualquier error, se detiene.
 
 **5. Comprobar el servicio**, todavía sin Cloudflare:
 
