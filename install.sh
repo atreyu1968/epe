@@ -13,6 +13,10 @@ EPE_REPO_URL="https://github.com/atreyu1968/epe.git"
 EPE_BUNDLE_FILE="$(printenv EPE_BUNDLE_FILE 2>/dev/null || true)"
 EPE_BUNDLE_URL="$(printenv EPE_BUNDLE_URL 2>/dev/null || true)"
 EPE_BUNDLE_SHA256="$(printenv EPE_BUNDLE_SHA256 2>/dev/null || true)"
+EPE_BUNDLE_PASSWORD="$(printenv EPE_BUNDLE_PASSWORD 2>/dev/null || true)"
+EPE_ENC_URL="https://raw.githubusercontent.com/atreyu1968/epe/main/releases/EPE_0446_CURSO_INTEGRADO_U1_A_U7_2026_2027.zip.enc"
+EPE_ENC_SHA256="123a2db15706bac900e3ffc00a33d73f98e5aeb0832cfc3ed3360ee64d10d84e"
+EPE_ORIGINAL_SHA256="a1cec0729106dc6ee62f7eca3d9108efc276e1b28222b87929ff076437eebd1d"
 EPE_MOODLE_ORIGIN="$(printenv EPE_MOODLE_ORIGIN 2>/dev/null || true)"
 EPE_PUBLIC_URL="$(printenv EPE_PUBLIC_URL 2>/dev/null || true)"
 EPE_INIT_DEMO="$(printenv EPE_INIT_DEMO 2>/dev/null || true)"
@@ -77,12 +81,23 @@ fi
 STAGE="$(mktemp -d /opt/epe/staging.XXXXXXXX)"
 trap 'rm -rf "$STAGE"' EXIT
 APPROOT=
-if [ -n "$EPE_BUNDLE_FILE" ] || [ -n "$EPE_BUNDLE_URL" ] || [ -f /opt/epe/source/dist/EPE_0446_CURSO_INTEGRADO_U1_A_U7_2026_2027.zip ]; then
+if [ -n "$EPE_BUNDLE_FILE" ] || [ -n "$EPE_BUNDLE_URL" ] || [ -n "$EPE_BUNDLE_PASSWORD" ] || [ -f /opt/epe/source/dist/EPE_0446_CURSO_INTEGRADO_U1_A_U7_2026_2027.zip ]; then
   BUNDLE="$EPE_BUNDLE_FILE"
   if [ -n "$EPE_BUNDLE_URL" ]; then
     BUNDLE="$STAGE/epe-original.zip"
     log "Descargando paquete de aplicación..."
     curl -fL --retry 3 --connect-timeout 15 "$EPE_BUNDLE_URL" -o "$BUNDLE"
+  fi
+  if [ -z "$BUNDLE" ] && [ -n "$EPE_BUNDLE_PASSWORD" ]; then
+    log "Descargando paquete EPE cifrado desde GitHub..."
+    ENC="$STAGE/EPE-original.zip.enc"
+    BUNDLE="$STAGE/epe-original.zip"
+    curl -fsSL --retry 3 --connect-timeout 15 "$EPE_ENC_URL" -o "$ENC"
+    printf '%s  %s\n' "$EPE_ENC_SHA256" "$ENC" | sha256sum -c --status || fail "El paquete cifrado no coincide con el SHA-256 publicado."
+    log "Descifrando paquete para la instalación (sin publicar la clave)..."
+    EPE_BUNDLE_PASSWORD="$EPE_BUNDLE_PASSWORD" openssl enc -d -aes-256-cbc -pbkdf2 -iter 250000 -in "$ENC" -out "$BUNDLE" -pass env:EPE_BUNDLE_PASSWORD || fail "No se pudo descifrar: comprueba la clave."
+    printf '%s  %s\n' "$EPE_ORIGINAL_SHA256" "$BUNDLE" | sha256sum -c --status || fail "El SHA-256 del ZIP descifrado no coincide."
+    unset EPE_BUNDLE_PASSWORD
   fi
   if [ -z "$BUNDLE" ]; then
     BUNDLE="/opt/epe/source/dist/EPE_0446_CURSO_INTEGRADO_U1_A_U7_2026_2027.zip"
@@ -109,7 +124,7 @@ PY
 elif [ -f /opt/epe/source/runtime/requirements.txt ]; then
   APPROOT="/opt/epe/source"
 else
-  fail "FALTA EL ERP: GitHub contiene solo el instalador. Aporta EPE_BUNDLE_FILE=/ruta/al/ZIP ORIGINAL o publica el código en el repositorio. No se ha creado ni iniciado el servicio."
+  fail "FALTA EL ERP: indica EPE_BUNDLE_PASSWORD para descargar desde GitHub el ZIP cifrado, o EPE_BUNDLE_FILE=/ruta/al/ZIP original. No se inicia el servicio."
 fi
 for f in runtime/requirements.txt runtime/unified.py runtime/manage.py runtime/configurar_scorms.py; do
   [ -f "$APPROOT/$f" ] || fail "Paquete incompleto: falta $f."
