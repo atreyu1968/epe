@@ -6,7 +6,7 @@ export DEBIAN_FRONTEND=noninteractive
 
 log() { printf '[EPE] %s\n' "$*"; }
 fail() { printf '[EPE] ERROR: %s\n' "$*" >&2; exit 1; }
-[ "$(id -u)" -eq 0 ] || fail "Ejecuta con sudo."
+[ "$(id -u)" -eq 0 ] || fail "Usa la consola root del LXC Ubuntu (no del host Proxmox), o sudo."
 command -v apt-get >/dev/null || fail "Se requiere Ubuntu/Debian con apt-get."
 
 EPE_REPO_URL="https://github.com/atreyu1968/epe.git"
@@ -17,6 +17,9 @@ EPE_MOODLE_ORIGIN="$(printenv EPE_MOODLE_ORIGIN 2>/dev/null || true)"
 EPE_PUBLIC_URL="$(printenv EPE_PUBLIC_URL 2>/dev/null || true)"
 EPE_INIT_DEMO="$(printenv EPE_INIT_DEMO 2>/dev/null || true)"
 EPE_PORT="$(printenv EPE_PORT 2>/dev/null || true)"
+EPE_BIND_HOST="$(printenv EPE_BIND_HOST 2>/dev/null || true)"
+EPE_SYSTEM_UPGRADE="$(printenv EPE_SYSTEM_UPGRADE 2>/dev/null || true)"
+[ -n "$EPE_BIND_HOST" ] || EPE_BIND_HOST=127.0.0.1
 [ -n "$EPE_PORT" ] || EPE_PORT=8000
 [[ "$EPE_PORT" =~ ^[0-9]{2,5}$ ]] || fail "EPE_PORT debe ser numérico."
 if [ -n "$EPE_MOODLE_ORIGIN" ]; then
@@ -40,7 +43,25 @@ if [ -n "$EPE_BUNDLE_FILE" ]; then
 fi
 log "Instalando dependencias básicas de Ubuntu..."
 apt-get update -qq
-apt-get install -y -qq git curl ca-certificates python3 python3-venv python3-pip openssl rsync unzip >/dev/null
+if [ "$EPE_SYSTEM_UPGRADE" = 1 ]; then
+  log "Actualizando paquetes del LXC Ubuntu (sin modificar el host Proxmox)..."
+  apt-get upgrade -y -qq -o Dpkg::Options::="--force-confold"
+fi
+apt-get install -y -qq --no-install-recommends git curl ca-certificates python3 python3-venv python3-pip openssl rsync unzip >/dev/null
+command -v systemctl >/dev/null || fail "Falta systemd; usa una plantilla Ubuntu LXC con systemd."
+[ -d /run/systemd/system ] || fail "systemd no parece estar arrancado como PID 1."
+python3 - "$EPE_BIND_HOST" <<'PY'
+import ipaddress, sys
+try:
+    ipaddress.IPv4Address(sys.argv[1])
+except ValueError:
+    raise SystemExit("EPE_BIND_HOST necesita una IPv4 válida del LXC.")
+PY
+if [ "$EPE_BIND_HOST" != 127.0.0.1 ]; then
+  log "Servicio accesible por red en $EPE_BIND_HOST; limita el puerto con el firewall de Proxmox."
+else
+  log "ATENCIÓN: para Cloudflare en otro LXC, define EPE_BIND_HOST=IP_PRIVADA_LXC_ERP."
+fi
 
 install -d -m 0755 /opt/epe
 if [ -d /opt/epe/source/.git ]; then
@@ -108,11 +129,16 @@ if [ ! -f /etc/epe/epe.env ]; then
     printf 'EPE_ADMIN_PASSWORD=%s\n' "$SECRET"
     printf 'EPE_ALLOWED_ORIGINS=%s\n' "$EPE_MOODLE_ORIGIN"
     printf 'EPE_COURSE_DATA=/var/lib/epe/data\n'
+    printf 'EPE_BIND_HOST=%s\n' "$EPE_BIND_HOST"
+    printf 'EPE_PORT=%s\n' "$EPE_PORT"
   } >/etc/epe/epe.env
   chmod 0600 /etc/epe/epe.env
   log "Clave administrativa generada en /etc/epe/epe.env (no se muestra)."
 else
-  log "Conservando /etc/epe/epe.env; revisa EPE_ALLOWED_ORIGINS si cambió Moodle."
+  log "Conservando claves y configuración de /etc/epe/epe.env. Los parámetros nuevos no sobrescriben valores existentes."
+  grep -q '^EPE_BIND_HOST=' /etc/epe/epe.env || printf 'EPE_BIND_HOST=%s\n' "$EPE_BIND_HOST" >> /etc/epe/epe.env
+  grep -q '^EPE_PORT=' /etc/epe/epe.env || printf 'EPE_PORT=%s\n' "$EPE_PORT" >> /etc/epe/epe.env
+  chmod 0600 /etc/epe/epe.env
 fi
 
 python3 -m venv /opt/epe/venv
@@ -128,7 +154,6 @@ chown -R root:root /opt/epe/app
 chmod -R go-w /opt/epe/app
 
 install -m 0644 /opt/epe/source/systemd/epe.service /etc/systemd/system/epe.service
-sed -i "s/--port 8000/--port $EPE_PORT/" /etc/systemd/system/epe.service
 install -m 0750 /opt/epe/source/scripts/backup.sh /usr/local/sbin/epe-backup
 install -m 0644 /opt/epe/source/systemd/epe-backup.service /etc/systemd/system/epe-backup.service
 install -m 0644 /opt/epe/source/systemd/epe-backup.timer /etc/systemd/system/epe-backup.timer
@@ -156,12 +181,18 @@ if [ -n "$EPE_PUBLIC_URL" ]; then
     runuser -u epe -- /opt/epe/venv/bin/python -m runtime.configurar_scorms --servidor "$EPE_PUBLIC_URL" --salida /var/lib/epe/paquetes-campus
   )
 fi
+# Usar los valores persistentes, incluso si el instalador se vuelve a ejecutar.
+LIVE_HOST="$(sed -n 's/^EPE_BIND_HOST=//p' /etc/epe/epe.env | tail -n1)"
+LIVE_PORT="$(sed -n 's/^EPE_PORT=//p' /etc/epe/epe.env | tail -n1)"
+[ -n "$LIVE_HOST" ] && [ -n "$LIVE_PORT" ] || fail "Falta configuración IP/puerto."
+CHECK_HOST="$LIVE_HOST"
+[ "$CHECK_HOST" = 0.0.0.0 ] && CHECK_HOST=127.0.0.1
 systemctl daemon-reload
 systemctl enable --now epe-backup.timer >/dev/null
 systemctl enable --now epe.service >/dev/null
 log "Esperando a que se inicie el ERP..."
 for i in $(seq 1 30); do
-  if curl --silent --fail "http://127.0.0.1:$EPE_PORT/api/health" -o "$STAGE/health.json"; then
+  if curl --silent --fail "http://$CHECK_HOST:$LIVE_PORT/api/health" -o "$STAGE/health.json"; then
     if python3 - "$STAGE/health.json" <<'PY'
 import json, sys
 with open(sys.argv[1], encoding='utf-8') as f:
@@ -169,9 +200,9 @@ with open(sys.argv[1], encoding='utf-8') as f:
 raise SystemExit(0 if data.get("ok") is True else 1)
 PY
     then
-      log "Servidor EPE saludable: http://127.0.0.1:$EPE_PORT/api/health"
+      log "Servidor EPE saludable: http://$CHECK_HOST:$LIVE_PORT/api/health"
       log "Servicio: systemctl status epe"
-      log "El acceso externo requiere configurar HTTPS/Cloudflare Tunnel."
+      log "Configura el Tunnel YA EXISTENTE en el otro LXC con servicio http://$LIVE_HOST:$LIVE_PORT y nombre público HTTPS."
       log "Datos conservados en /var/lib/epe/data; copia diaria en /var/backups/epe."
       exit 0
     fi
