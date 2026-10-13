@@ -68,8 +68,19 @@ class IntegrationTest(unittest.TestCase):
    self.assertEqual(info.status_code,200,info.text)
    auth={'Authorization':'Bearer '+info.json()['token']}
    self.assertEqual(self.client.get('/u1/api/me',headers=auth).json()['username'],'e01a01')
-   self.assertIn('window.EPE_LTI_MODE=true',self.client.get('/lti/app/u1/portfolio/config.js').text)
-   self.assertIn("/lti/api/bootstrap",self.client.get('/lti/app/u1/portfolio/app.js').text)
+   for unit in range(1,8):
+    config=self.client.get(f'/lti/app/u{unit}/portfolio/config.js')
+    self.assertEqual(config.status_code,200)
+    self.assertIn(f"apiBase:'/u{unit}'",config.text)
+    self.assertIn('window.EPE_LTI_MODE=true',config.text)
+    script=self.client.get(f'/lti/app/u{unit}/portfolio/app.js')
+    self.assertEqual(script.status_code,200)
+    self.assertIn('/lti/api/bootstrap',script.text)
+    bridge=self.client.get(f'/lti/api/bootstrap?unit={unit}')
+    self.assertEqual(bridge.status_code,200)
+    student=self.client.get(f'/u{unit}/api/me',headers={'Authorization':'Bearer '+bridge.json()['token']}).json()
+    self.assertEqual(student['username'],'e01a01')
+    self.assertEqual(student['team_id'],1)
    self.assertEqual(self.client.get('/lti/app/u1/portfolio/../../servidor/answer_key.json').status_code,404)
    self.assertEqual(self.client.post('/lti/api/sync-portfolio?unit=1').status_code,403) # CSRF
    self.assertEqual(self.client.post('/lti/api/sync-portfolio?unit=1',headers={'X-EPE-LTI-CSRF':info.json()['csrf']}).json()['published'],False)
