@@ -1,0 +1,23 @@
+name: Validar instalador
+on:
+  push:
+    paths:
+      - 'install.sh'
+      - 'scripts/**'
+      - 'systemd/**'
+      - '.github/workflows/**'
+  pull_request:
+jobs:
+  sintaxis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Comprobar sintaxis Bash
+        run: |
+          bash -n install.sh
+          bash -n scripts/backup.sh
+      - name: Comprobar unidades systemd
+        run: |
+          test -s systemd/epe.service
+          test -s systemd/epe-backup.service
+          test -s systemd/epe-backup.timer

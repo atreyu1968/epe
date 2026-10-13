@@ -1,0 +1,25 @@
+[Unit]
+Description=EPE · ERP Empresa en el Aula
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=epe
+Group=epe
+WorkingDirectory=/opt/epe/app
+EnvironmentFile=/etc/epe/epe.env
+ExecStart=/opt/epe/venv/bin/python -m uvicorn runtime.unified:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/epe
+CapabilityBoundingSet=
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

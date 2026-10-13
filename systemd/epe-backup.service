@@ -1,0 +1,6 @@
+[Unit]
+Description=Copia consistente SQLite del ERP EPE
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/epe-backup
+User=root

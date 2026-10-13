@@ -1,0 +1,22 @@
+# Datos privados: no publicar en GitHub
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.db-journal
+*credenciales*.csv
+__pycache__/
+*.pyc
+.venv/
+venv/
+runtime/data/
+data/
+private/
+backups/
+logs/
+*.log
+.terraform/
+dist/*.zip

@@ -1,0 +1,182 @@
+#!/usr/bin/env bash
+# Instalador EPE 0446. Ubuntu/Debian. Ejecutar como root.
+set -Eeuo pipefail
+umask 077
+export DEBIAN_FRONTEND=noninteractive
+
+log() { printf '[EPE] %s\n' "$*"; }
+fail() { printf '[EPE] ERROR: %s\n' "$*" >&2; exit 1; }
+[ "$(id -u)" -eq 0 ] || fail "Ejecuta con sudo."
+command -v apt-get >/dev/null || fail "Se requiere Ubuntu/Debian con apt-get."
+
+EPE_REPO_URL="https://github.com/atreyu1968/epe.git"
+EPE_BUNDLE_FILE="$(printenv EPE_BUNDLE_FILE 2>/dev/null || true)"
+EPE_BUNDLE_URL="$(printenv EPE_BUNDLE_URL 2>/dev/null || true)"
+EPE_BUNDLE_SHA256="$(printenv EPE_BUNDLE_SHA256 2>/dev/null || true)"
+EPE_MOODLE_ORIGIN="$(printenv EPE_MOODLE_ORIGIN 2>/dev/null || true)"
+EPE_PUBLIC_URL="$(printenv EPE_PUBLIC_URL 2>/dev/null || true)"
+EPE_INIT_DEMO="$(printenv EPE_INIT_DEMO 2>/dev/null || true)"
+EPE_PORT="$(printenv EPE_PORT 2>/dev/null || true)"
+[ -n "$EPE_PORT" ] || EPE_PORT=8000
+[[ "$EPE_PORT" =~ ^[0-9]{2,5}$ ]] || fail "EPE_PORT debe ser numérico."
+if [ -n "$EPE_MOODLE_ORIGIN" ]; then
+  [[ "$EPE_MOODLE_ORIGIN" =~ ^https?://[a-zA-Z0-9._:-]+$ ]] || fail "EPE_MOODLE_ORIGIN debe ser un origen sin rutas, por ejemplo https://campus.ejemplo.es."
+else
+  EPE_MOODLE_ORIGIN="http://localhost:8000"
+  log "No se ha indicado Campus. Se autoriza solo el origen de prueba localhost."
+fi
+if [ -n "$EPE_PUBLIC_URL" ]; then
+  [[ "$EPE_PUBLIC_URL" =~ ^https://[a-zA-Z0-9._:-]+$ ]] || fail "EPE_PUBLIC_URL debe ser HTTPS sin rutas."
+fi
+if [ -n "$EPE_BUNDLE_URL" ]; then
+  [[ "$EPE_BUNDLE_URL" =~ ^https:// ]] || fail "El paquete remoto debe descargarse por HTTPS."
+  [[ "$EPE_BUNDLE_SHA256" =~ ^[a-fA-F0-9]{64}$ ]] || fail "EPE_BUNDLE_URL exige EPE_BUNDLE_SHA256 (64 caracteres hexadecimales)."
+fi
+if [ -n "$EPE_BUNDLE_FILE" ] && [ -n "$EPE_BUNDLE_URL" ]; then
+  fail "Elige EPE_BUNDLE_FILE o EPE_BUNDLE_URL, no ambos."
+fi
+if [ -n "$EPE_BUNDLE_FILE" ]; then
+  [ -f "$EPE_BUNDLE_FILE" ] || fail "No existe EPE_BUNDLE_FILE: $EPE_BUNDLE_FILE"
+fi
+log "Instalando dependencias básicas de Ubuntu..."
+apt-get update -qq
+apt-get install -y -qq git curl ca-certificates python3 python3-venv python3-pip openssl rsync unzip >/dev/null
+
+install -d -m 0755 /opt/epe
+if [ -d /opt/epe/source/.git ]; then
+  log "Actualizando scripts de GitHub..."
+  git -C /opt/epe/source fetch --quiet --depth=1 origin main
+  git -C /opt/epe/source reset --hard --quiet origin/main
+else
+  [ ! -e /opt/epe/source ] || fail "/opt/epe/source ya existe y no es un clon gestionado."
+  log "Descargando instalador y archivos de GitHub..."
+  git clone --quiet --depth=1 -b main "$EPE_REPO_URL" /opt/epe/source
+fi
+
+STAGE="$(mktemp -d /opt/epe/staging.XXXXXXXX)"
+trap 'rm -rf "$STAGE"' EXIT
+APPROOT=
+if [ -n "$EPE_BUNDLE_FILE" ] || [ -n "$EPE_BUNDLE_URL" ] || [ -f /opt/epe/source/dist/EPE_0446_CURSO_INTEGRADO_U1_A_U7_2026_2027.zip ]; then
+  BUNDLE="$EPE_BUNDLE_FILE"
+  if [ -n "$EPE_BUNDLE_URL" ]; then
+    BUNDLE="$STAGE/epe-original.zip"
+    log "Descargando paquete de aplicación..."
+    curl -fL --retry 3 --connect-timeout 15 "$EPE_BUNDLE_URL" -o "$BUNDLE"
+  fi
+  if [ -z "$BUNDLE" ]; then
+    BUNDLE="/opt/epe/source/dist/EPE_0446_CURSO_INTEGRADO_U1_A_U7_2026_2027.zip"
+  fi
+  if [ -n "$EPE_BUNDLE_SHA256" ]; then
+    printf '%s  %s\n' "$EPE_BUNDLE_SHA256" "$BUNDLE" | sha256sum -c --status || fail "El SHA-256 del paquete no coincide."
+  fi
+  log "Validando rutas y extrayendo paquete..."
+  python3 - "$BUNDLE" "$STAGE/unzip" <<'PY'
+import pathlib, stat, sys, zipfile
+bundle, dest = sys.argv[1:]
+with zipfile.ZipFile(bundle) as z:
+    for entry in z.infolist():
+        p = pathlib.PurePosixPath(entry.filename)
+        kind = (entry.external_attr >> 16) & 0o170000
+        if (entry.filename.startswith("/") or "\\" in entry.filename
+                or ".." in p.parts or kind not in (0, stat.S_IFREG, stat.S_IFDIR)):
+            raise SystemExit("ZIP no seguro: " + entry.filename)
+    z.extractall(dest)
+PY
+  APPROOT="$(find "$STAGE/unzip" -type f -path '*/runtime/requirements.txt' -print -quit)"
+  [ -n "$APPROOT" ] || fail "El ZIP carece de runtime/requirements.txt."
+  APPROOT="$(dirname "$(dirname "$APPROOT")")"
+elif [ -f /opt/epe/source/runtime/requirements.txt ]; then
+  APPROOT="/opt/epe/source"
+else
+  fail "FALTA EL ERP: GitHub contiene solo el instalador. Aporta EPE_BUNDLE_FILE=/ruta/al/ZIP ORIGINAL o publica el código en el repositorio. No se ha creado ni iniciado el servicio."
+fi
+for f in runtime/requirements.txt runtime/unified.py runtime/manage.py runtime/configurar_scorms.py; do
+  [ -f "$APPROOT/$f" ] || fail "Paquete incompleto: falta $f."
+done
+log "Preparando la versión de la aplicación..."
+install -d -m 0755 "$STAGE/app"
+rsync -a --exclude='.git/' --exclude='runtime/data/' --exclude='*.sqlite' --exclude='*.sqlite-wal' --exclude='*.sqlite-shm' --exclude='*.env' --exclude='*credenciales*.csv' "$APPROOT/" "$STAGE/app/"
+
+if ! id epe >/dev/null 2>&1; then
+  useradd --system --home-dir /var/lib/epe --create-home --shell /usr/sbin/nologin epe
+fi
+install -d -m 0750 -o epe -g epe /var/lib/epe /var/lib/epe/data /var/lib/epe/private /var/lib/epe/paquetes-campus
+install -d -m 0750 /etc/epe /var/backups/epe /opt/epe/releases
+if [ ! -f /etc/epe/epe.env ]; then
+  SECRET="$(openssl rand -hex 32)"
+  {
+    printf 'EPE_ADMIN_PASSWORD=%s\n' "$SECRET"
+    printf 'EPE_ALLOWED_ORIGINS=%s\n' "$EPE_MOODLE_ORIGIN"
+    printf 'EPE_COURSE_DATA=/var/lib/epe/data\n'
+  } >/etc/epe/epe.env
+  chmod 0600 /etc/epe/epe.env
+  log "Clave administrativa generada en /etc/epe/epe.env (no se muestra)."
+else
+  log "Conservando /etc/epe/epe.env; revisa EPE_ALLOWED_ORIGINS si cambió Moodle."
+fi
+
+python3 -m venv /opt/epe/venv
+/opt/epe/venv/bin/python -m pip install -q --upgrade pip
+/opt/epe/venv/bin/python -m pip install -q -r "$STAGE/app/runtime/requirements.txt" 'uvicorn>=0.30,<1'
+if [ -d /opt/epe/app ]; then
+  log "Deteniendo versión anterior y preservando su código..."
+  systemctl stop epe.service >/dev/null 2>&1 || true
+  mv /opt/epe/app "/opt/epe/releases/app-$(date +%Y%m%d-%H%M%S)"
+fi
+mv "$STAGE/app" /opt/epe/app
+chown -R root:root /opt/epe/app
+chmod -R go-w /opt/epe/app
+
+install -m 0644 /opt/epe/source/systemd/epe.service /etc/systemd/system/epe.service
+sed -i "s/--port 8000/--port $EPE_PORT/" /etc/systemd/system/epe.service
+install -m 0750 /opt/epe/source/scripts/backup.sh /usr/local/sbin/epe-backup
+install -m 0644 /opt/epe/source/systemd/epe-backup.service /etc/systemd/system/epe-backup.service
+install -m 0644 /opt/epe/source/systemd/epe-backup.timer /etc/systemd/system/epe-backup.timer
+
+if [ "$EPE_INIT_DEMO" = 1 ]; then
+  if find /var/lib/epe/data -type f -name '*.sqlite' | grep -q .; then
+    log "Se conservan las bases existentes; no se recrean los usuarios."
+  else
+    log "Creando dos empresas ficticias (4 y 5 alumnos)..."
+    (
+      cd /opt/epe/app
+      set -a
+      # shellcheck source=/dev/null
+      . /etc/epe/epe.env
+      set +a
+      runuser -u epe -- /opt/epe/venv/bin/python -m runtime.manage crear --equipos 2 --tamanos 4,5 --salida /var/lib/epe/private/credenciales_epe.csv
+    )
+    chmod 0600 /var/lib/epe/private/credenciales_epe.csv
+  fi
+fi
+if [ -n "$EPE_PUBLIC_URL" ]; then
+  log "Generando 21 SCORM para la URL pública..."
+  (
+    cd /opt/epe/app
+    runuser -u epe -- /opt/epe/venv/bin/python -m runtime.configurar_scorms --servidor "$EPE_PUBLIC_URL" --salida /var/lib/epe/paquetes-campus
+  )
+fi
+systemctl daemon-reload
+systemctl enable --now epe-backup.timer >/dev/null
+systemctl enable --now epe.service >/dev/null
+log "Esperando a que se inicie el ERP..."
+for i in $(seq 1 30); do
+  if curl --silent --fail "http://127.0.0.1:$EPE_PORT/api/health" -o "$STAGE/health.json"; then
+    if python3 - "$STAGE/health.json" <<'PY'
+import json, sys
+with open(sys.argv[1], encoding='utf-8') as f:
+    data = json.load(f)
+raise SystemExit(0 if data.get("ok") is True else 1)
+PY
+    then
+      log "Servidor EPE saludable: http://127.0.0.1:$EPE_PORT/api/health"
+      log "Servicio: systemctl status epe"
+      log "El acceso externo requiere configurar HTTPS/Cloudflare Tunnel."
+      log "Datos conservados en /var/lib/epe/data; copia diaria en /var/backups/epe."
+      exit 0
+    fi
+  fi
+  sleep 2
+done
+journalctl -u epe.service -n 30 --no-pager >&2 || true
+fail "El servicio no pasó la prueba local. Consulta journalctl -u epe -n 100."
