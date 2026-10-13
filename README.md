@@ -4,6 +4,12 @@
 
 > **Estado real (13/10/2026):** ZIP original recibido y verificado localmente: **21/21 SCORM íntegros y cuatro pruebas de integración superadas**. El paquete completo **ya se encuentra publicado CIFRADO** en [releases/EPE_0446_CURSO_INTEGRADO_U1_A_U7_2026_2027.zip.enc](releases/EPE_0446_CURSO_INTEGRADO_U1_A_U7_2026_2027.zip.enc), sin exponer en abierto las claves de corrección ni el solucionario docente. Para instalarlo desde GitHub hace falta la clave privada `EPE_BUNDLE_PASSWORD`, entregada por separado. La instalación en Ubuntu y la integración en Campus real todavía requieren una prueba con el servidor definitivo.
 
+## Inventario del ZIP original y compatibilidad LTI
+
+- [Inventario verificado de los 436 archivos, 21 SCORM y resultados de las pruebas](docs/INVENTARIO_ZIP_INTEGRADO_2026_2027.md).
+- **El paquete original no incorpora aún LTI 1.3**: utiliza SCORM 1.2 con cuentas EPE propias. El registro de una herramienta LTI 1.3 y el envío automático de calificaciones mediante AGS son desarrollos pendientes; no basta con seleccionar esas opciones en Campus.
+- El ZIP sin cifrar contiene claves de corrección y solucionario. Mantener la distribución completa **cifrada**, con la contraseña por canal privado; no descomprimir directamente todo su contenido en este repositorio público.
+
 ## Arquitectura de despliegue prevista
 
 ```text
