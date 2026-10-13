@@ -66,3 +66,7 @@ Con usuarios ficticios y dos empresas de 4 y 5 miembros comprobar:
 7. Comprobar que RA7 no se considera superado sin la rúbrica docente cuando corresponda.
 
 Si falla guardado, identidad, nota, aislamiento o un criterio de seguridad, suspender el uso en evaluación real y revisar las incidencias. La integración **todavía no se ha certificado en el Moodle real**.
+
+## Alternativa LTI 1.3 (portafolio cooperativo con acceso único)
+
+El ERP dispone ahora de LTI 1.3: [guía de registro y activación](LTI_CAMPUS.md). Para portafolios, elige **una sola vía de calificación**: SCORM o LTI/AGS, pero no ambas con peso a la vez. Los exámenes pueden mantenerse como paquetes SCORM individuales; sus credenciales EPE siguen siendo necesarias si se accede desde el SCORM. La guía LTI explica la asignación de identidades del alumnado sin segunda contraseña en el **portafolio**. Hasta una prueba real en Campus, la publicación AGS permanece desactivada.
