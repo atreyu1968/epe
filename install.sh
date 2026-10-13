@@ -132,6 +132,22 @@ done
 log "Preparando la versión de la aplicación..."
 install -d -m 0755 "$STAGE/app"
 rsync -a --exclude='.git/' --exclude='runtime/data/' --exclude='*.sqlite' --exclude='*.sqlite-wal' --exclude='*.sqlite-shm' --exclude='*.env' --exclude='*credenciales*.csv' "$APPROOT/" "$STAGE/app/"
+# Integración pública LTI Advantage sobre el ZIP cifrado original. No copia soluciones a GitHub.
+[ -f /opt/epe/source/runtime/lti.py ] || fail "Falta runtime/lti.py en el repositorio. Actualiza el instalador."
+install -m 0644 /opt/epe/source/runtime/lti.py "$STAGE/app/runtime/lti.py"
+if ! grep -q 'from \.lti import router as lti_router' "$STAGE/app/runtime/unified.py"; then
+  printf '\n# LTI Advantage 1.3 (OIDC + AGS + NRPS)\nfrom .lti import router as lti_router\napp.include_router(lti_router)\n' >> "$STAGE/app/runtime/unified.py"
+fi
+cat >> "$STAGE/app/runtime/requirements.txt" <<'LTI_PYTHON_DEPENDENCIES'
+PyJWT>=2.8,<3
+cryptography>=42,<47
+python-multipart>=0.0.12,<1
+LTI_PYTHON_DEPENDENCIES
+install -d -m 0755 "$STAGE/app/documentacion"
+install -m 0644 /opt/epe/source/docs/LTI_CAMPUS.md "$STAGE/app/documentacion/LTI13_CAMPUS.md"
+install -d -m 0755 "$STAGE/app/pruebas"
+install -m 0644 /opt/epe/source/pruebas/test_curso_integrado.py "$STAGE/app/pruebas/test_curso_integrado.py"
+log "Módulo LTI 1.3 incorporado. Permanecerá sin habilitar hasta registrar las credenciales reales de Campus."
 
 if ! getent group epe >/dev/null 2>&1; then
   groupadd --system epe
@@ -141,6 +157,16 @@ if ! id epe >/dev/null 2>&1; then
 fi
 install -d -m 0750 -o epe -g epe /var/lib/epe /var/lib/epe/data /var/lib/epe/private /var/lib/epe/paquetes-campus
 install -d -m 0750 /etc/epe /var/backups/epe /opt/epe/releases
+chown root:epe /etc/epe
+chmod 0750 /etc/epe
+# La clave privada LTI no está en GitHub ni dentro del ZIP. Se conserva en reinstalaciones.
+LTI_KEY_FILE=/etc/epe/lti-private.pem
+if [ ! -f "$LTI_KEY_FILE" ]; then
+  log "Creando clave RSA privada para LTI en el LXC..."
+  openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$LTI_KEY_FILE" >/dev/null 2>&1
+fi
+chown root:epe "$LTI_KEY_FILE"
+chmod 0640 "$LTI_KEY_FILE"
 if [ ! -f /etc/epe/epe.env ]; then
   SECRET="$(openssl rand -hex 32)"
   {
@@ -149,6 +175,9 @@ if [ ! -f /etc/epe/epe.env ]; then
     printf 'EPE_COURSE_DATA=/var/lib/epe/data\n'
     printf 'EPE_BIND_HOST=%s\n' "$EPE_BIND_HOST"
     printf 'EPE_PORT=%s\n' "$EPE_PORT"
+    [ -z "$EPE_PUBLIC_URL" ] || printf 'EPE_PUBLIC_URL=%s\n' "$EPE_PUBLIC_URL"
+    printf 'EPE_LTI_PRIVATE_KEY_FILE=/etc/epe/lti-private.pem\n'
+    printf 'EPE_LTI_GRADE_MODE=disabled\n'
   } >/etc/epe/epe.env
   chmod 0600 /etc/epe/epe.env
   log "Clave administrativa generada en /etc/epe/epe.env (no se muestra)."
@@ -158,6 +187,13 @@ else
   grep -q '^EPE_PORT=' /etc/epe/epe.env || printf 'EPE_PORT=%s\n' "$EPE_PORT" >> /etc/epe/epe.env
   chmod 0600 /etc/epe/epe.env
 fi
+# Las credenciales efectivas issuer/client_id/deployment_id las entrega Campus tras registrar la herramienta.
+if [ -n "$EPE_PUBLIC_URL" ] && ! grep -q '^EPE_PUBLIC_URL=' /etc/epe/epe.env; then
+  printf 'EPE_PUBLIC_URL=%s\n' "$EPE_PUBLIC_URL" >> /etc/epe/epe.env
+fi
+grep -q '^EPE_LTI_PRIVATE_KEY_FILE=' /etc/epe/epe.env || printf 'EPE_LTI_PRIVATE_KEY_FILE=/etc/epe/lti-private.pem\n' >> /etc/epe/epe.env
+grep -q '^EPE_LTI_GRADE_MODE=' /etc/epe/epe.env || printf 'EPE_LTI_GRADE_MODE=disabled\n' >> /etc/epe/epe.env
+chmod 0600 /etc/epe/epe.env
 
 python3 -m venv /opt/epe/venv
 /opt/epe/venv/bin/python -m pip install -q --upgrade pip
