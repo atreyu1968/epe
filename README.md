@@ -10,6 +10,19 @@
 - **El paquete original no incorpora aún LTI 1.3**: utiliza SCORM 1.2 con cuentas EPE propias. El registro de una herramienta LTI 1.3 y el envío automático de calificaciones mediante AGS son desarrollos pendientes; no basta con seleccionar esas opciones en Campus.
 - El ZIP sin cifrar contiene claves de corrección y solucionario. Mantener la distribución completa **cifrada**, con la contraseña por canal privado; no descomprimir directamente todo su contenido en este repositorio público.
 
+## LTI Advantage 1.3: integrado en el instalador (14/10/2026)
+
+La rama `main` contiene ahora el [módulo LTI 1.3](runtime/lti.py), las [pruebas automáticas](pruebas/test_curso_integrado.py), y la [guía de registro en Campus](docs/LTI_CAMPUS.md). **La nueva versión de `install.sh` incorpora estas fuentes al ZIP original cifrado**, instala PyJWT y las dependencias necesarias, genera en el LXC una clave RSA privada y conserva los expedientes y las siete unidades existentes.
+
+- El usuario abre la herramienta desde Campus; el ERP valida la firma y los campos OIDC obligatorios de LTI 1.3.
+- La primera vez, el profesor vincula cada identidad firmada con una cuenta EPE y su empresa mediante `/lti/admin/`. El alumnado entra posteriormente al portafolio sin otra contraseña.
+- El informe de portafolio puede enviarse a Campus mediante AGS; **por defecto está desactivado** hasta superar la prueba real con alumnos ficticios. NRPS puede consultar participantes, pero **no garantiza la información de grupos**.
+- Los exámenes individuales continúan como paquetes SCORM 1.2. No ponderar simultáneamente un portafolio SCORM y su homólogo LTI.
+- La integración se ha **probado localmente** mediante pruebas criptográficas, replay, asignación de cuentas, aislamiento y simulaciones AGS. **No está instalada ni validada todavía en tu Moodle/Proxmox real**.
+- No es necesario publicar sin cifrar el ZIP completo ni el solucionario; el instalador combina la distribución cifrada ya publicada con el código LTI público.
+
+Consulta [instalación LTI en Campus](docs/LTI_CAMPUS.md) para los campos concretos, la clave pública y las variables de `/etc/epe/epe.env`.
+
 ## Arquitectura de despliegue prevista
 
 ```text
