@@ -23,6 +23,33 @@ La rama `main` contiene ahora el [módulo LTI 1.3](runtime/lti.py), las [pruebas
 
 Consulta [instalación LTI en Campus](docs/LTI_CAMPUS.md) para los campos concretos, la clave pública y las variables de `/etc/epe/epe.env`.
 
+## Rotación de clave del ZIP cifrado — versión 2 (19/10/2026)
+
+Se ha generado y **verificado mediante descifrado completo** el nuevo archivo privado
+`EPE_0446_CURSO_INTEGRADO_U1_A_U7_2026_2027_v2.zip.enc`, de 2.290.352 bytes. Conserva el ZIP original, cuyo SHA-256 descifrado es `a1cec0729106dc6ee62f7eca3d9108efc276e1b28222b87929ff076437eebd1d`.
+
+**Estado de publicación:** el binario **v2 todavía NO está subido a GitHub**. El código ya admite `EPE_BUNDLE_VERSION=v2`, pero no intentes ejecutar la descarga cifrada de v2 hasta completar la carga. La versión anterior sigue disponible mientras tanto.
+
+Una sola vez, desde la sesión del propietario del repositorio en GitHub, abre [releases](https://github.com/atreyu1968/epe/tree/main/releases), pulsa **Add file > Upload files**, selecciona el fichero v2 descargado del chat y confirma **Commit changes** sobre `main`. El archivo a cargar debe tener exactamente el nombre:
+
+`releases/EPE_0446_CURSO_INTEGRADO_U1_A_U7_2026_2027_v2.zip.enc`
+
+**No subas el archivo de clave privada.** Clave y ZIP se entregan por separado fuera del repositorio público. SHA-256 del fichero cifrado v2:
+
+`8d0adf50d855ec9b06cc04984f0dff9e67de72d34a23b57575c258c1943c88e8`
+
+Después de subirlo a GitHub y guardar la clave privada en el CT con permisos 0600:
+
+```bash
+apt-get update && apt-get install -y ca-certificates curl
+curl -fsSL https://raw.githubusercontent.com/atreyu1968/epe/main/scripts/auto-install.sh -o /root/epe-auto-install.sh
+EPE_BIND_HOST=172.16.180.31 EPE_BUNDLE_VERSION=v2 EPE_INIT_DEMO=1 bash /root/epe-auto-install.sh
+```
+
+El instalador utilizará `/root/.config/epe/bundle-password` por defecto, donde debe haberse colocado la nueva clave de descifrado sin el salto de línea final. La instalación no solicita datos, verifica **dos SHA-256**, configura LTI, datos, servidor y servicio, y ejecuta la prueba `/api/health`.
+
+Como alternativa privada se puede asignar `EPE_BUNDLE_PASSWORD` mediante variable de entorno para una ejecución sin fichero, pero evita dejar secretos en el historial de comandos, capturas de terminal o procesos visibles para otros usuarios.
+
 ## Instalación totalmente desatendida desde GitHub (contenedor EPE 110)
 
 Se ha añadido [scripts/auto-install.sh](scripts/auto-install.sh) para que un Ubuntu limpio instale sus dependencias, detecte su IPv4, descargue el ERP **cifrado desde el propio repositorio**, verifique las sumas SHA-256, configure las siete unidades, LTI 1.3, systemd y copias SQLite y realice una comprobación local. No necesita copiar el ZIP desde Windows ni instalar Docker.

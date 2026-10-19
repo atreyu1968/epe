@@ -2,6 +2,10 @@
 
 Para una instalación nueva en Proxmox con Cloudflare Tunnel en otro contenedor, sigue preferentemente la [guía de Proxmox paso a paso](PROXMOX_LXC.md).
 
+## Distribución cifrada v2 (rotación de clave)
+
+La versión v2 descifrable con la **nueva** contraseña está preparada y verificada. **Debe subirse primero una sola vez a `releases/EPE_0446_CURSO_INTEGRADO_U1_A_U7_2026_2027_v2.zip.enc` del repositorio público; el archivo de clave NUNCA debe subirse.** SHA-256 cifrado: `8d0adf50d855ec9b06cc04984f0dff9e67de72d34a23b57575c258c1943c88e8`. Una vez disponible, usar `EPE_BUNDLE_VERSION=v2` en el autoinstalador. La distribución v1 se mantiene por compatibilidad, sin cambiar sus sumas.
+
 ## Nuevo autoinstalador desatendido
 
 Para el contenedor **110 (172.16.180.31)**, está disponible [scripts/auto-install.sh](../scripts/auto-install.sh). Desde Ubuntu sin curl, instalar primero certificados y curl, descargar ese script y ejecutarlo. **Requisito:** archivo privado `/root/.config/epe/bundle-password` con el secreto de descifrado y permisos `0600`, provisionado de forma segura. Sin secreto, el script termina antes de modificar nada. El sistema descarga y valida el ZIP cifrado desde GitHub; no hay que trasladar el ZIP original. El inicio LTI efectivo requiere dar de alta la herramienta desde el Campus real más adelante.
@@ -9,7 +13,7 @@ Para el contenedor **110 (172.16.180.31)**, está disponible [scripts/auto-insta
 ```bash
 apt-get update && apt-get install -y ca-certificates curl
 curl -fsSL https://raw.githubusercontent.com/atreyu1968/epe/main/scripts/auto-install.sh -o /root/epe-auto-install.sh
-EPE_BIND_HOST=172.16.180.31 EPE_INIT_DEMO=1 bash /root/epe-auto-install.sh
+EPE_BIND_HOST=172.16.180.31 EPE_BUNDLE_VERSION=v2 EPE_INIT_DEMO=1 bash /root/epe-auto-install.sh
 ```
 
 ## Resumen operativo

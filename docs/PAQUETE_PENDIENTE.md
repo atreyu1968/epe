@@ -31,3 +31,7 @@ Tampoco deben publicarse bases SQLite reales, CSV de credenciales, configuracion
 **Aún pendiente:** prueba completa del instalador modificado en Ubuntu LXC limpio; conexión de red con Cloudflare Tunnel en otro LXC; carga de SCORM en Campus real, persistencia y reporte efectivo de calificaciones. **LTI 1.3 no forma parte de esta versión integrada SCORM y no debe darse por implantado**.
 
 Se recomienda ejecutar primero con empresas ficticias para validar el circuito completo antes de incorporar datos reales del alumnado.
+
+## Paquete cifrado v2 (19/10/2026)
+
+Se generó una nueva clave privada y un fichero cifrado v2 de 2.290.352 bytes a partir del ZIP original, descifrado y verificado localmente. **El binario v2 aún debe subirse manualmente una sola vez** a `releases/EPE_0446_CURSO_INTEGRADO_U1_A_U7_2026_2027_v2.zip.enc` porque la conexión disponible no transfiere binarios locales de ese tamaño a GitHub. Contraseña privada fuera de GitHub. SHA256 cifrado: `8d0adf50d855ec9b06cc04984f0dff9e67de72d34a23b57575c258c1943c88e8`. Para la instalación usa `EPE_BUNDLE_VERSION=v2` tras verificar que el fichero está disponible en remoto.
