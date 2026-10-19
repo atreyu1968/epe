@@ -23,6 +23,30 @@ La rama `main` contiene ahora el [módulo LTI 1.3](runtime/lti.py), las [pruebas
 
 Consulta [instalación LTI en Campus](docs/LTI_CAMPUS.md) para los campos concretos, la clave pública y las variables de `/etc/epe/epe.env`.
 
+## Instalación totalmente desatendida desde GitHub (contenedor EPE 110)
+
+Se ha añadido [scripts/auto-install.sh](scripts/auto-install.sh) para que un Ubuntu limpio instale sus dependencias, detecte su IPv4, descargue el ERP **cifrado desde el propio repositorio**, verifique las sumas SHA-256, configure las siete unidades, LTI 1.3, systemd y copias SQLite y realice una comprobación local. No necesita copiar el ZIP desde Windows ni instalar Docker.
+
+**Única condición previa:** el ZIP contiene las respuestas de evaluación y está cifrado; el instalador no puede conocer su clave de forma pública. Deposita **una vez** la contraseña de descifrado en `/root/.config/epe/bundle-password` con propietario root y permisos `0600` (nunca dentro de GitHub). Si no dispones de esa clave, solicita la reemisión privada del paquete cifrado; no hay forma segura de descifrarlo sin ella.
+
+Para evitar incluir la clave en el historial, en la consola root del CT se puede crear con un editor de texto privado, o mediante una transferencia segura ya autorizada. **El auto-instalador no pide claves ni datos durante su ejecución**: aborta antes de modificar Ubuntu si falta la clave.
+
+En la consola root del **contenedor 110** (IP detectada: `172.16.180.31`):
+
+```bash
+# Ejecutar SOLO tras guardar la clave privada en /root/.config/epe/bundle-password
+apt-get update && apt-get install -y ca-certificates curl
+curl -fsSL https://raw.githubusercontent.com/atreyu1968/epe/main/scripts/auto-install.sh -o /root/epe-auto-install.sh
+bash -n /root/epe-auto-install.sh
+EPE_BIND_HOST=172.16.180.31 EPE_INIT_DEMO=1 bash /root/epe-auto-install.sh
+```
+
+`EPE_INIT_DEMO=1` crea dos empresas ficticias con 4 y 5 alumnos; omítelo para no crear datos de prueba. El instalador conserva `/etc/epe/epe.env` y las bases de datos en reinstalaciones. Si el servidor tiene varias interfaces, define `EPE_BIND_HOST` explícitamente.
+
+**Sin contraseña del ZIP cifrado**, también se admite el ZIP original transferido privadamente al contenedor; ejecutar `EPE_BUNDLE_FILE=/ruta/ERP.zip bash /root/epe-auto-install.sh`. Esto no requiere cifrado, pero sí copiar el archivo.
+
+El autoinstalador instala todo **en el LXC ERP**, pero no debe intervenir en el túnel Cloudflare del otro LXC ni registrar una herramienta LTI en Moodle sin sus identificadores reales (Client ID, Deployment ID, issuer), que emite Campus. Tras instalar, ver [registro LTI](docs/LTI_CAMPUS.md).
+
 ## Arquitectura de despliegue prevista
 
 ```text

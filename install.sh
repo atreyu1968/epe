@@ -14,6 +14,16 @@ EPE_BUNDLE_FILE="$(printenv EPE_BUNDLE_FILE 2>/dev/null || true)"
 EPE_BUNDLE_URL="$(printenv EPE_BUNDLE_URL 2>/dev/null || true)"
 EPE_BUNDLE_SHA256="$(printenv EPE_BUNDLE_SHA256 2>/dev/null || true)"
 EPE_BUNDLE_PASSWORD="$(printenv EPE_BUNDLE_PASSWORD 2>/dev/null || true)"
+EPE_BUNDLE_PASSWORD_FILE="$(printenv EPE_BUNDLE_PASSWORD_FILE 2>/dev/null || true)"
+if [ -n "$EPE_BUNDLE_PASSWORD_FILE" ]; then
+  [ -z "$EPE_BUNDLE_PASSWORD" ] || fail "No combines EPE_BUNDLE_PASSWORD y EPE_BUNDLE_PASSWORD_FILE."
+  [ -f "$EPE_BUNDLE_PASSWORD_FILE" ] && [ -r "$EPE_BUNDLE_PASSWORD_FILE" ] || fail "No se puede leer el fichero de clave EPE_BUNDLE_PASSWORD_FILE."
+  [ "$(stat -c '%u' "$EPE_BUNDLE_PASSWORD_FILE")" = 0 ] || fail "El archivo de clave debe pertenecer a root."
+  PERMS="$(stat -c '%a' "$EPE_BUNDLE_PASSWORD_FILE")"
+  case "$PERMS" in 400|600) ;; *) fail "El archivo de clave debe tener permisos 0600 o 0400 (actuales: $PERMS)." ;; esac
+  EPE_BUNDLE_PASSWORD="$(cat "$EPE_BUNDLE_PASSWORD_FILE")"
+  [ -n "$EPE_BUNDLE_PASSWORD" ] || fail "El fichero de clave está vacío."
+fi
 EPE_ENC_URL="https://raw.githubusercontent.com/atreyu1968/epe/main/releases/EPE_0446_CURSO_INTEGRADO_U1_A_U7_2026_2027.zip.enc"
 EPE_ENC_SHA256="123a2db15706bac900e3ffc00a33d73f98e5aeb0832cfc3ed3360ee64d10d84e"
 EPE_ORIGINAL_SHA256="a1cec0729106dc6ee62f7eca3d9108efc276e1b28222b87929ff076437eebd1d"
