@@ -4,7 +4,7 @@ Para una instalación nueva en Proxmox con Cloudflare Tunnel en otro contenedor,
 
 ## Distribución cifrada v2 (rotación de clave)
 
-La versión v2 descifrable con la **nueva** contraseña está preparada y verificada. **Debe subirse primero una sola vez a `releases/EPE_0446_CURSO_INTEGRADO_U1_A_U7_2026_2027_v2.zip.enc` del repositorio público; el archivo de clave NUNCA debe subirse.** SHA-256 cifrado: `8d0adf50d855ec9b06cc04984f0dff9e67de72d34a23b57575c258c1943c88e8`. Una vez disponible, usar `EPE_BUNDLE_VERSION=v2` en el autoinstalador. La distribución v1 se mantiene por compatibilidad, sin cambiar sus sumas.
+La versión v2 descifrable con la **nueva** contraseña **ya está publicada** en [releases/EPE_0446_CURSO_INTEGRADO_U1_A_U7_2026_2027_v2.zip.enc](../releases/EPE_0446_CURSO_INTEGRADO_U1_A_U7_2026_2027_v2.zip.enc). Se ha verificado su contenido por hash. **El archivo de clave privada NUNCA debe subirse a GitHub.** SHA-256 cifrado: `8d0adf50d855ec9b06cc04984f0dff9e67de72d34a23b57575c258c1943c88e8`. El autoinstalador ahora selecciona v2 por defecto; `EPE_BUNDLE_VERSION=v1` permite usar la versión previa.
 
 ## Nuevo autoinstalador desatendido
 

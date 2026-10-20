@@ -23,14 +23,14 @@ La rama `main` contiene ahora el [módulo LTI 1.3](runtime/lti.py), las [pruebas
 
 Consulta [instalación LTI en Campus](docs/LTI_CAMPUS.md) para los campos concretos, la clave pública y las variables de `/etc/epe/epe.env`.
 
-## Rotación de clave del ZIP cifrado — versión 2 (19/10/2026)
+## Paquete cifrado v2: publicado en GitHub (20/10/2026)
 
 Se ha generado y **verificado mediante descifrado completo** el nuevo archivo privado
 `EPE_0446_CURSO_INTEGRADO_U1_A_U7_2026_2027_v2.zip.enc`, de 2.290.352 bytes. Conserva el ZIP original, cuyo SHA-256 descifrado es `a1cec0729106dc6ee62f7eca3d9108efc276e1b28222b87929ff076437eebd1d`.
 
-**Estado de publicación:** el binario **v2 todavía NO está subido a GitHub**. El código ya admite `EPE_BUNDLE_VERSION=v2`, pero no intentes ejecutar la descarga cifrada de v2 hasta completar la carga. La versión anterior sigue disponible mientras tanto.
+**Estado de publicación (20/10/2026):** el binario **v2 ya está disponible en GitHub**, publicado y cotejado por hash con el archivo original. El instalador usa **v2 por defecto**; `EPE_BUNDLE_VERSION=v1` conserva la compatibilidad con la versión antigua.
 
-Una sola vez, desde la sesión del propietario del repositorio en GitHub, abre [releases](https://github.com/atreyu1968/epe/tree/main/releases), pulsa **Add file > Upload files**, selecciona el fichero v2 descargado del chat y confirma **Commit changes** sobre `main`. El archivo a cargar debe tener exactamente el nombre:
+El archivo cifrado [ya se ha incorporado a `main`](https://github.com/atreyu1968/epe/commit/e66555752564fb9b745aad69f96f41109216d991), en la ruta:
 
 `releases/EPE_0446_CURSO_INTEGRADO_U1_A_U7_2026_2027_v2.zip.enc`
 
@@ -38,7 +38,7 @@ Una sola vez, desde la sesión del propietario del repositorio en GitHub, abre [
 
 `8d0adf50d855ec9b06cc04984f0dff9e67de72d34a23b57575c258c1943c88e8`
 
-Después de subirlo a GitHub y guardar la clave privada en el CT con permisos 0600:
+Una vez guardada la clave privada v2 en el CT con permisos 0600, ejecuta:
 
 ```bash
 apt-get update && apt-get install -y ca-certificates curl

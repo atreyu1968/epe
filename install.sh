@@ -24,7 +24,7 @@ if [ -n "$EPE_BUNDLE_PASSWORD_FILE" ]; then
   EPE_BUNDLE_PASSWORD="$(cat "$EPE_BUNDLE_PASSWORD_FILE")"
   [ -n "$EPE_BUNDLE_PASSWORD" ] || fail "El fichero de clave está vacío."
 fi
-EPE_BUNDLE_VERSION="${EPE_BUNDLE_VERSION:-v1}"
+EPE_BUNDLE_VERSION="${EPE_BUNDLE_VERSION:-v2}"
 case "$EPE_BUNDLE_VERSION" in
   v1)
     EPE_ENC_URL="https://raw.githubusercontent.com/atreyu1968/epe/main/releases/EPE_0446_CURSO_INTEGRADO_U1_A_U7_2026_2027.zip.enc"
@@ -36,7 +36,7 @@ case "$EPE_BUNDLE_VERSION" in
     ;;
   *) fail "EPE_BUNDLE_VERSION admite v1 o v2." ;;
 esac
-# v2 es la nueva distribución cifrada, una vez que se haya publicado el binario.
+# v2 es la distribución cifrada vigente; para usar la v1 anterior, indicar EPE_BUNDLE_VERSION=v1.
 
 EPE_ORIGINAL_SHA256="a1cec0729106dc6ee62f7eca3d9108efc276e1b28222b87929ff076437eebd1d"
 EPE_MOODLE_ORIGIN="$(printenv EPE_MOODLE_ORIGIN 2>/dev/null || true)"
